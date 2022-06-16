@@ -7,6 +7,8 @@ import {
   Scripts,
   ScrollRestoration,
 } from "@remix-run/react";
+import ThemeProvider from "./themes";
+import { NotificationsProvider } from "@mantine/notifications";
 
 export const meta: MetaFunction = () => ({
   charset: "utf-8",
@@ -14,19 +16,33 @@ export const meta: MetaFunction = () => ({
   viewport: "width=device-width,initial-scale=1",
 });
 
-export default function App() {
+const Document: React.FC = ({ children }) => {
   return (
-    <html lang="en">
+    <html lang='en'>
       <head>
         <Meta />
         <Links />
       </head>
       <body>
-        <Outlet />
+        {children}
         <ScrollRestoration />
         <Scripts />
         <LiveReload />
       </body>
     </html>
   );
-}
+};
+
+const App = () => {
+  return (
+    <Document>
+      <ThemeProvider>
+        <NotificationsProvider>
+          <Outlet />
+        </NotificationsProvider>
+      </ThemeProvider>
+    </Document>
+  );
+};
+
+export default App;
