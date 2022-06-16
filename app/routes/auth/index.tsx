@@ -12,127 +12,194 @@ import {
   TextInput,
   Title,
 } from "@mantine/core";
-import { useState } from "react";
+import React, { useState } from "react";
 import logoN from "~/assets/images/logo-N.png";
-import { z } from "zod";
-import { useForm, zodResolver } from "@mantine/form";
-import { Form, useActionData } from "@remix-run/react";
+import { Form } from "@remix-run/react";
+import { json } from "@remix-run/node";
 import type { ActionFunction } from "@remix-run/node";
-
-export type AuthForm = {
-  emailOrphone: string;
-  password: string;
-  action: string;
-};
-
-const schema = z.object({
-  emailOrPhone: z.string().email({ message: "Invalid Email" }),
-  password: z.string().min(6, { message: "Must be 6 or more characters long" }),
-});
+import type { RegisterForm } from "~/utils/types.server";
+import { validateRegister } from "~/utils/validator.server";
+import { login, register } from "~/utils/auth.server";
 
 export const action: ActionFunction = async ({ request }) => {
-  console.log(request);
   const form = await request.formData();
-  const emailOrPhone = form.get("emailOrPhone");
-  const password = form.get("password");
+  const email = form.get("email");
+  const passwordHash = form.get("passwordHash");
+  let confirmPassword = form.get("confirmPassword");
   const action = form.get("_action");
-  // we do this type check to be extra sure and to make TypeScript happy
-  // we'll explore validation next!
-  if (typeof emailOrPhone !== "string" || typeof password !== "string") {
-    throw new Error(`Form not submitted correctly.`);
+
+  if (
+    typeof email !== "string" ||
+    typeof passwordHash !== "string" ||
+    typeof action !== "string"
+  ) {
+    return json({ success: false, message: "Invalid form data" }, 400);
   }
 
-  const fields = { emailOrPhone, password, action };
-  console.log(fields);
-  return console.log(fields);
+  if (action === "register" && typeof confirmPassword !== "string") {
+    return json({ success: false, message: "Invalid form data" }, 400);
+  }
+
+  confirmPassword = confirmPassword as string;
+  const { issues } = validateRegister({ email, passwordHash, confirmPassword });
+  if (issues) {
+    return json(
+      {
+        success: false,
+        errors: issues[0].message,
+      },
+      400
+    );
+  }
+
+  switch (action) {
+    case "login": {
+      return login({ email, passwordHash });
+    }
+    case "register": {
+      confirmPassword = confirmPassword as string;
+      return register({ email, passwordHash, confirmPassword });
+    }
+    default:
+      return json({ success: false, message: "Invalid form data" }, 400);
+  }
 };
 
 const Login = () => {
-  const actionData = useActionData<FormData>();
-  console.log(actionData);
-  const form = useForm({
-    schema: zodResolver(schema),
-    initialValues: {
-      emailOrPhone: "",
-      password: "",
-    },
+  const [formData, setFormData] = useState<RegisterForm>({
+    email: "",
+    passwordHash: "",
+    confirmPassword: "",
   });
+
+  const handleChangeInput = (
+    event: React.ChangeEvent<HTMLInputElement>,
+    field: string
+  ) => {
+    setFormData((form) => ({
+      ...form,
+      [field]: event.target.value,
+    }));
+  };
 
   const [action, setAction] = useState<string>("login");
 
   const handleActionChange = () => {
     let value: string;
     value = action === "login" ? "register" : "login";
-    form.reset();
+    setFormData({ email: "", passwordHash: "", confirmPassword: "" });
     setAction(value);
   };
   return (
     <Paper
       withBorder
-      shadow='md'
+      shadow="md"
       p={30}
-      radius='md'
+      radius="md"
       sx={(theme) => ({
         background:
           theme.colorScheme === "dark"
-            ? "rgba(0,0,0,0.7)"
-            : "rgba(255,255,255,0.4)",
+            ? "rgba(0,0,0,0.6)"
+            : "rgba(255,255,255,0.1)",
         backdropFilter: "blur(8px)",
         minWidth: "320px",
         margin: "auto",
-      })}>
+      })}
+    >
       <Center>
-        <Image src={logoN} alt='logo' width={100} />
+        <Image src={logoN} alt="logo" width={100} />
       </Center>
       <Center>
-        <Title align='left' order={2}>
+        <Title align="left" order={2}>
           {action === "login" ? "Sign in" : "Sign up"}
         </Title>
       </Center>
-      <Space h='md' />
-      <Form method='post'>
+      <Space h="md" />
+      <Form method="post">
         <TextInput
-          label='Email or Phone'
-          placeholder='Your email or phone'
-          {...form.getInputProps("emailOrPhone")}
-          autoComplete='emailOrPhone'
+          name="email"
+          label="Email"
+          placeholder="Your email"
+          autoComplete="email"
+          value={formData.email}
+          onChange={(e) => handleChangeInput(e, "email")}
+          styles={(theme) => ({
+            label: {
+              color:
+                theme.colorScheme === "dark"
+                  ? theme.colors.primaryColor
+                  : "red",
+            },
+          })}
           required
         />
         <PasswordInput
-          label='Password'
-          placeholder='Your password'
-          {...form.getInputProps("password")}
-          autoComplete='password'
+          name="passwordHash"
+          label="Password"
+          placeholder="Your password"
+          autoComplete="password"
+          value={formData.passwordHash}
+          onChange={(e) => handleChangeInput(e, "passwordHash")}
+          styles={(theme) => ({
+            label: {
+              color:
+                theme.colorScheme === "dark"
+                  ? theme.colors.primaryColor
+                  : "red",
+            },
+          })}
           required
-          mt='md'
+          mt="md"
         />
+        {action !== "login" ? (
+          <PasswordInput
+            name="confirmPassword"
+            label="Confirm Password"
+            placeholder="Repeat password"
+            autoComplete="password"
+            value={formData.confirmPassword}
+            onChange={(e) => handleChangeInput(e, "confirmPassword")}
+            styles={(theme) => ({
+              label: {
+                color:
+                  theme.colorScheme === "dark"
+                    ? theme.colors.primaryColor
+                    : "red",
+              },
+            })}
+            required
+            mt="md"
+          />
+        ) : null}
         {action === "login" ? (
-          <Group position='apart' mt='md'>
-            <Checkbox label='Remember me' />
+          <Group position="apart" mt="md">
+            <Checkbox label="Remember me" />
             <Anchor<"a">
               onClick={(event) => event.preventDefault()}
-              href='#'
-              size='sm'>
+              href="#"
+              size="sm"
+            >
               Forgot password?
             </Anchor>
           </Group>
         ) : null}
-        <Button fullWidth mt='xl' name='_action' value={action} type='submit'>
+        <Button fullWidth mt="xl" name="_action" value={action} type="submit">
           {action === "login" ? "Sign in" : "Sign up"}
         </Button>
         <Divider
-          my='xs'
+          my="xs"
           label={
             action === "login"
               ? "Dont have an account?"
               : "Already have an account?"
           }
-          labelPosition='center'
+          labelPosition="center"
         />
         <Button
           onClick={() => handleActionChange()}
-          variant='outline'
-          fullWidth>
+          variant="outline"
+          fullWidth
+        >
           {action === "login" ? "Sign up" : "Sign in"}
         </Button>
       </Form>
