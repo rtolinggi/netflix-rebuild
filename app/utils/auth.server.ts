@@ -45,7 +45,7 @@ export const register = async (form: RegisterForm) => {
       { status: 400 }
     );
   }
-  return createUserSession(newUser.id, "/");
+  return createUserSession(newUser.id, "/auth");
 };
 
 export const login = async (form: LoginForm) => {
@@ -65,6 +65,15 @@ export const login = async (form: LoginForm) => {
     );
   }
   return createUserSession(user.id, "/movie");
+};
+
+export const logout = async (request: Request) => {
+  const session = await getUsersession(request);
+  return redirect("/auth", {
+    headers: {
+      "Set-Cookie": await storage.destroySession(session),
+    },
+  });
 };
 
 export const createUserSession = async (userId: string, redirecTo: string) => {
@@ -92,4 +101,27 @@ export const requireUserId = async (
 
 const getUsersession = (request: Request) => {
   return storage.getSession(request.headers.get("Cookie"));
+};
+
+const getUserId = async (request: Request) => {
+  const session = await getUsersession(request);
+  const userId = session.get("userId");
+  if (!userId || typeof userId !== "string") return null;
+  return userId;
+};
+
+export const getUser = async (request: Request) => {
+  const userId = await getUserId(request);
+  if (typeof userId !== "string") {
+    return null;
+  }
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, profile: true },
+    });
+    return user;
+  } catch (error) {
+    throw logout(request);
+  }
 };
