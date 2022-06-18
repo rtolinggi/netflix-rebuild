@@ -21,13 +21,6 @@ const storage = createCookieSessionStorage({
 });
 
 export const register = async (form: RegisterForm) => {
-  if (form.passwordHash !== form.confirmPassword) {
-    return json({
-      success: false,
-      message: "Password not match",
-    });
-  }
-
   const userExist = await prisma.user.count({
     where: {
       email: form.email,
@@ -35,7 +28,10 @@ export const register = async (form: RegisterForm) => {
   });
 
   if (userExist) {
-    return json({ success: false, message: "Email already exist" }, 400);
+    return json(
+      { success: false, message: "Email already exist" },
+      { status: 400 }
+    );
   }
 
   const newUser = await createUser(form);
@@ -45,12 +41,8 @@ export const register = async (form: RegisterForm) => {
       {
         success: false,
         message: "Something went wrong trying to register user",
-        fields: {
-          email: form.email,
-          passowrd: form.passwordHash,
-        },
       },
-      400
+      { status: 400 }
     );
   }
   return createUserSession(newUser.id, "/");
@@ -67,12 +59,12 @@ export const login = async (form: LoginForm) => {
     return json(
       {
         success: false,
-        message: "Email not found",
+        message: "Invalid credentials",
       },
-      401
+      { status: 400 }
     );
   }
-  return createUserSession(user.id, "/");
+  return createUserSession(user.id, "/movie");
 };
 
 export const createUserSession = async (userId: string, redirecTo: string) => {
@@ -83,4 +75,21 @@ export const createUserSession = async (userId: string, redirecTo: string) => {
       "Set-Cookie": await storage.commitSession(session),
     },
   });
+};
+
+export const requireUserId = async (
+  request: Request,
+  redirectTo: string = new URL(request.url).pathname
+) => {
+  const session = await getUsersession(request);
+  const userId = session.get("userId");
+  if (!userId || typeof userId !== "string") {
+    const searchParams = new URLSearchParams([["redirectTo", redirectTo]]);
+    throw redirect(`/auth?${searchParams}`);
+  }
+  return userId;
+};
+
+const getUsersession = (request: Request) => {
+  return storage.getSession(request.headers.get("Cookie"));
 };

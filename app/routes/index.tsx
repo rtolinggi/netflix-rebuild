@@ -1,13 +1,13 @@
-import { Center, Container, Title } from "@mantine/core";
+import { requireUserId } from "~/utils/auth.server";
+import type { LoaderFunction } from "@remix-run/node";
+
+export const loader: LoaderFunction = async ({ request }) => {
+  await requireUserId(request);
+  return null;
+};
 
 const IndexRoute = () => {
-  return (
-    <Container>
-      <Center>
-        <Title order={1}>Main Page</Title>
-      </Center>
-    </Container>
-  );
+  return null;
 };
 
 export default IndexRoute;

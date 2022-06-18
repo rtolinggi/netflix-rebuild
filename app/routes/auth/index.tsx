@@ -6,71 +6,149 @@ import {
   Divider,
   Group,
   Image,
+  LoadingOverlay,
   Paper,
   PasswordInput,
   Space,
   TextInput,
   Title,
 } from "@mantine/core";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import logoN from "~/assets/images/logo-N.png";
-import { Form } from "@remix-run/react";
+import { Form, Link, useActionData, useTransition } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import type { ActionFunction } from "@remix-run/node";
 import type { RegisterForm } from "~/utils/types.server";
-import { validateRegister } from "~/utils/validator.server";
 import { login, register } from "~/utils/auth.server";
+import { showNotification } from "@mantine/notifications";
+import {
+  validateConfirmPassword,
+  validateEmail,
+  validatePasswordHash,
+} from "~/utils/validator.server";
 
+type Error = {
+  email?: string;
+  passwordHash?: string;
+  confirmPassword?: string;
+};
+
+type ActionData = {
+  success: boolean;
+  errors: Error;
+  message?: string;
+};
 export const action: ActionFunction = async ({ request }) => {
-  const form = await request.formData();
-  const email = form.get("email");
-  const passwordHash = form.get("passwordHash");
-  let confirmPassword = form.get("confirmPassword");
-  const action = form.get("_action");
+  const formData = await request.formData();
+  const action = formData.get("_action");
+  const email = formData.get("email");
+  const passwordHash = formData.get("passwordHash");
+  let confirmPassword = formData.get("confirmPassword");
 
   if (
     typeof email !== "string" ||
     typeof passwordHash !== "string" ||
     typeof action !== "string"
   ) {
-    return json({ success: false, message: "Invalid form data" }, 400);
-  }
-
-  if (action === "register" && typeof confirmPassword !== "string") {
-    return json({ success: false, message: "Invalid form data" }, 400);
-  }
-
-  confirmPassword = confirmPassword as string;
-  const { issues } = validateRegister({ email, passwordHash, confirmPassword });
-  if (issues) {
     return json(
-      {
-        success: false,
-        errors: issues[0].message,
-      },
-      400
+      { success: false, form: action, message: "Invalid form data" },
+      { status: 400 }
     );
   }
 
+  if (action === "register" && typeof confirmPassword !== "string") {
+    return json(
+      { success: false, form: action, message: "Invalid form data" },
+      { status: 400 }
+    );
+  }
+
+  const fieldValidate = (action: string) => {
+    if (action === "register") {
+      confirmPassword = confirmPassword as string;
+      return {
+        email: validateEmail(email),
+        passwordHash: validatePasswordHash(passwordHash),
+        confirmPassword: validateConfirmPassword(passwordHash, confirmPassword),
+      };
+    }
+    return {
+      email: validateEmail(email),
+      passwordHash: validatePasswordHash(passwordHash),
+    };
+  };
+
+  const fieldErrors = fieldValidate(action);
+  if (Object.values(fieldErrors).some(Boolean))
+    return json(
+      {
+        success: false,
+        errors: fieldErrors,
+      },
+      { status: 400 }
+    );
+
   switch (action) {
     case "login": {
-      return login({ email, passwordHash });
+      return await login({ email, passwordHash });
     }
     case "register": {
       confirmPassword = confirmPassword as string;
-      return register({ email, passwordHash, confirmPassword });
+      return await register({ email, passwordHash, confirmPassword });
     }
     default:
-      return json({ success: false, message: "Invalid form data" }, 400);
+      return json(
+        { success: false, message: "Invalid form data" },
+        { status: 400 }
+      );
   }
 };
 
 const Login = () => {
+  const trasition = useTransition();
+  const [visible, setVisible] = useState<boolean>(false);
+  const actionData = useActionData<ActionData>();
+  const [fieldErrors, setFieldErrors] = useState<Error>({});
+  const [action, setAction] = useState<string>("login");
   const [formData, setFormData] = useState<RegisterForm>({
-    email: "",
-    passwordHash: "",
-    confirmPassword: "",
+    email: actionData?.errors?.email || "",
+    passwordHash: actionData?.errors?.passwordHash || "",
+    confirmPassword: actionData?.errors?.confirmPassword || "",
   });
+
+  const firstLoadRef = useRef<boolean>(true);
+
+  useEffect(() => {
+    if (actionData?.message) {
+      showMessage("Authentication", actionData?.message);
+    }
+    setFieldErrors(actionData?.errors || {});
+  }, [actionData]);
+
+  useEffect(() => {
+    if (trasition.state === "submitting") {
+      setVisible(true);
+    }
+    if (trasition.state === "idle") {
+      setVisible(false);
+    }
+  }, [trasition]);
+
+  useEffect(() => {
+    if (!firstLoadRef.current) {
+      const newState = {
+        email: "",
+        passwordHash: "",
+        confirmPassword: "",
+      };
+      setFieldErrors(newState);
+      setFormData(newState);
+    }
+  }, [action]);
+
+  useEffect(() => {
+    firstLoadRef.current = false;
+  }, []);
 
   const handleChangeInput = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -82,20 +160,26 @@ const Login = () => {
     }));
   };
 
-  const [action, setAction] = useState<string>("login");
-
   const handleActionChange = () => {
     let value: string;
     value = action === "login" ? "register" : "login";
     setFormData({ email: "", passwordHash: "", confirmPassword: "" });
     setAction(value);
   };
+
+  const showMessage = (title: string, message: string) => {
+    return showNotification({
+      title,
+      message,
+    });
+  };
+
   return (
     <Paper
       withBorder
-      shadow="md"
+      shadow='md'
       p={30}
-      radius="md"
+      radius='md'
       sx={(theme) => ({
         background:
           theme.colorScheme === "dark"
@@ -104,25 +188,26 @@ const Login = () => {
         backdropFilter: "blur(8px)",
         minWidth: "320px",
         margin: "auto",
-      })}
-    >
+      })}>
+      <LoadingOverlay visible={visible} />
       <Center>
-        <Image src={logoN} alt="logo" width={100} />
+        <Image src={logoN} alt='logo' width={100} />
       </Center>
       <Center>
-        <Title align="left" order={2}>
+        <Title align='left' order={2}>
           {action === "login" ? "Sign in" : "Sign up"}
         </Title>
       </Center>
-      <Space h="md" />
-      <Form method="post">
+      <Space h='md' />
+      <Form method='post'>
         <TextInput
-          name="email"
-          label="Email"
-          placeholder="Your email"
-          autoComplete="email"
+          name='email'
+          label='Email'
+          placeholder='Your email'
+          autoComplete='email'
           value={formData.email}
           onChange={(e) => handleChangeInput(e, "email")}
+          error={fieldErrors?.email}
           styles={(theme) => ({
             label: {
               color:
@@ -134,12 +219,13 @@ const Login = () => {
           required
         />
         <PasswordInput
-          name="passwordHash"
-          label="Password"
-          placeholder="Your password"
-          autoComplete="password"
+          name='passwordHash'
+          label='Password'
+          placeholder='Your password'
+          autoComplete='password'
           value={formData.passwordHash}
           onChange={(e) => handleChangeInput(e, "passwordHash")}
+          error={fieldErrors?.passwordHash}
           styles={(theme) => ({
             label: {
               color:
@@ -149,16 +235,17 @@ const Login = () => {
             },
           })}
           required
-          mt="md"
+          mt='md'
         />
         {action !== "login" ? (
           <PasswordInput
-            name="confirmPassword"
-            label="Confirm Password"
-            placeholder="Repeat password"
-            autoComplete="password"
+            name='confirmPassword'
+            label='Confirm Password'
+            placeholder='Repeat password'
+            autoComplete='password'
             value={formData.confirmPassword}
             onChange={(e) => handleChangeInput(e, "confirmPassword")}
+            error={fieldErrors?.confirmPassword}
             styles={(theme) => ({
               label: {
                 color:
@@ -168,38 +255,39 @@ const Login = () => {
               },
             })}
             required
-            mt="md"
+            mt='md'
           />
         ) : null}
         {action === "login" ? (
-          <Group position="apart" mt="md">
-            <Checkbox label="Remember me" />
-            <Anchor<"a">
-              onClick={(event) => event.preventDefault()}
-              href="#"
-              size="sm"
-            >
+          <Group position='apart' mt='md'>
+            <Checkbox label='Remember me' />
+            <Anchor component={Link} to='#' size='sm'>
               Forgot password?
             </Anchor>
           </Group>
         ) : null}
-        <Button fullWidth mt="xl" name="_action" value={action} type="submit">
+        <Button
+          fullWidth
+          mt='xl'
+          name='_action'
+          value={action}
+          type='submit'
+          loading={trasition.state === "submitting"}>
           {action === "login" ? "Sign in" : "Sign up"}
         </Button>
         <Divider
-          my="xs"
+          my='xs'
           label={
             action === "login"
               ? "Dont have an account?"
               : "Already have an account?"
           }
-          labelPosition="center"
+          labelPosition='center'
         />
         <Button
           onClick={() => handleActionChange()}
-          variant="outline"
-          fullWidth
-        >
+          variant='outline'
+          fullWidth>
           {action === "login" ? "Sign up" : "Sign in"}
         </Button>
       </Form>

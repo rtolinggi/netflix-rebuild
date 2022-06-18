@@ -18,7 +18,7 @@ export const meta: MetaFunction = () => ({
 
 const Document: React.FC = ({ children }) => {
   return (
-    <html lang="en">
+    <html lang='en'>
       <head>
         <Meta />
         <Links />
@@ -37,7 +37,7 @@ const App = () => {
   return (
     <Document>
       <ThemeProvider>
-        <NotificationsProvider>
+        <NotificationsProvider position='top-center'>
           <Outlet />
         </NotificationsProvider>
       </ThemeProvider>

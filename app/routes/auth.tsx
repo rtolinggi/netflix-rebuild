@@ -24,22 +24,20 @@ const Auth = () => {
           background:
             theme.colorScheme === "dark"
               ? "rgba(0,0,0,0.8)"
-              : "rgba(255,255,255,0.5)",
-        })}
-      ></Box>
+              : "rgba(255,255,255,0.05)",
+        })}></Box>
       <Group
-        position="apart"
+        position='apart'
         style={{
           position: "absolute",
           width: "100%",
           top: 15,
           padding: "0 1rem",
-        }}
-      >
-        <Anchor component={Link} to="/auth/login">
-          <Image src={logo} alt="logo" width={120} />
+        }}>
+        <Anchor component={Link} to='/auth/login'>
+          <Image src={logo} alt='logo' width={120} />
         </Anchor>
-        <DarkMode variant="filled" size={25} />
+        <DarkMode variant='filled' size={25} />
       </Group>
 
       <Center style={{ minHeight: "100vh", width: "100%" }}>
