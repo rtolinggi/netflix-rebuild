@@ -19,13 +19,14 @@ import { Form, Link, useActionData, useTransition } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import type { ActionFunction } from "@remix-run/node";
 import type { RegisterForm } from "~/utils/types.server";
-import { login, register } from "~/utils/auth.server";
+import { login, register } from "~/models/auth.server";
 import { showNotification } from "@mantine/notifications";
 import {
   validateConfirmPassword,
   validateEmail,
   validatePasswordHash,
 } from "~/utils/validator.server";
+import { Check } from "tabler-icons-react";
 
 type Error = {
   email?: string;
@@ -120,7 +121,18 @@ const Login = () => {
 
   useEffect(() => {
     if (actionData?.message) {
-      showMessage("Authentication", actionData?.message);
+      if (
+        actionData?.success &&
+        actionData.message ===
+          "Register Success, Please Check youre email to activation account"
+      ) {
+        setAction("login");
+      }
+      showMessage(
+        actionData?.success ? "Success" : "Error",
+        actionData?.message,
+        actionData?.success ? true : false
+      );
     }
     setFieldErrors(actionData?.errors || {});
   }, [actionData]);
@@ -167,10 +179,12 @@ const Login = () => {
     setAction(value);
   };
 
-  const showMessage = (title: string, message: string) => {
+  const showMessage = (title: string, message: string, success: boolean) => {
     return showNotification({
       title,
       message,
+      icon: success ? <Check /> : null,
+      color: success ? "teal" : "red",
     });
   };
 

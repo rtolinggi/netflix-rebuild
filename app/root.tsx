@@ -37,7 +37,7 @@ const App = () => {
   return (
     <Document>
       <ThemeProvider>
-        <NotificationsProvider position='top-center'>
+        <NotificationsProvider position='top-center' autoClose={5000}>
           <Outlet />
         </NotificationsProvider>
       </ThemeProvider>

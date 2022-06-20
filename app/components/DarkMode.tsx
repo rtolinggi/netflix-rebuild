@@ -13,10 +13,9 @@ const DarkMode: React.FC<Props> = ({ variant, size }) => {
   return (
     <ActionIcon
       variant={variant}
-      color="red"
+      color='red'
       onClick={() => toggleColorScheme()}
-      title="Dark Mode"
-    >
+      title='Dark Mode'>
       {dark ? <Sun size={size || 18} /> : <MoonStars size={size || 18} />}
     </ActionIcon>
   );

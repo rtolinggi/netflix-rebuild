@@ -1,24 +1,11 @@
-import { json, createCookieSessionStorage, redirect } from "@remix-run/node";
-import { prisma } from "./prisma.server";
-import type { RegisterForm, LoginForm } from "./types.server";
+import { json, redirect } from "@remix-run/node";
+import { prisma } from "../utils/prisma.server";
+import type { RegisterForm, LoginForm } from "../utils/types.server";
 import { createUser } from "./users.server";
 import bcrypt from "bcryptjs";
-
-const sessionSecret = process.env.SESSION_SECRET;
-if (!sessionSecret) {
-  throw new Error("SESSION_SECRET must be set");
-}
-const storage = createCookieSessionStorage({
-  cookie: {
-    name: "netflix-session",
-    secure: process.env.NODE_ENV === "production",
-    secrets: [sessionSecret],
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-    httpOnly: true,
-  },
-});
+import { createUserSession, storage } from "~/utils/session.server";
+import { constant } from "~/config/constant";
+import createTtansporter from "~/utils/email.server";
 
 export const register = async (form: RegisterForm) => {
   const userExist = await prisma.user.count({
@@ -45,7 +32,23 @@ export const register = async (form: RegisterForm) => {
       { status: 400 }
     );
   }
-  return createUserSession(newUser.id, "/auth");
+
+  createTtansporter(
+    newUser.email,
+    "Verification User",
+    `
+    <h3><b>Please Clink link in bottom</b></h3>
+  `
+  );
+
+  return json(
+    {
+      success: true,
+      message:
+        "Register Success, Please Check youre email to activation account",
+    },
+    { status: 200 }
+  );
 };
 
 export const login = async (form: LoginForm) => {
@@ -64,6 +67,20 @@ export const login = async (form: LoginForm) => {
       { status: 400 }
     );
   }
+
+  if (!constant.EMAIL_VERIFICATION) {
+    if (!user.isVerified) {
+      return json(
+        {
+          success: false,
+          message:
+            "Please verification email, check youre email to activate user",
+        },
+        { status: 400 }
+      );
+    }
+  }
+
   return createUserSession(user.id, "/movie");
 };
 
@@ -72,16 +89,6 @@ export const logout = async (request: Request) => {
   return redirect("/auth", {
     headers: {
       "Set-Cookie": await storage.destroySession(session),
-    },
-  });
-};
-
-export const createUserSession = async (userId: string, redirecTo: string) => {
-  const session = await storage.getSession();
-  session.set("userId", userId);
-  return redirect(redirecTo, {
-    headers: {
-      "Set-Cookie": await storage.commitSession(session),
     },
   });
 };

@@ -1,6 +1,6 @@
 import { Center, Container, Title } from "@mantine/core";
 import { Outlet } from "@remix-run/react";
-import { requireUserId } from "~/utils/auth.server";
+import { requireUserId } from "~/models/auth.server";
 import type { LoaderFunction } from "@remix-run/node";
 
 export const loader: LoaderFunction = async ({ request }) => {
@@ -17,8 +17,7 @@ const Movie = () => {
         alignItems: "center",
         width: "100%",
         height: "100vh",
-      }}
-    >
+      }}>
       <Center>
         <Title>Movie Pages</Title>
       </Center>

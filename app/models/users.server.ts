@@ -1,5 +1,5 @@
-import { prisma } from "./prisma.server";
-import type { RegisterForm } from "./types.server";
+import { prisma } from "../utils/prisma.server";
+import type { RegisterForm } from "../utils/types.server";
 import bcrypt from "bcryptjs";
 
 export const createUser = async (user: RegisterForm) => {

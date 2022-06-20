@@ -16,11 +16,22 @@ model User {
   passwordHash String
   role         Role    @default(USER)
   isVerified   Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updateAt     DateTime @updatedAt
   profile      Json
+  verifiedEmail VerifiedEmail?
+}
+
+model VerifiedEmail {
+  id Int @id @default(autoincrement())
+  token String
+  expired Int @default(3600)
+  createdAt DateTime @default(now())
+  userId String
+  user User @relation(fields: [userId],references: [id],onDelete: Cascade)
 }
 
 enum Role {
   USER
   ADMIN
-  OPERATOR
 }
