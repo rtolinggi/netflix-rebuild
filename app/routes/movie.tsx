@@ -1,6 +1,6 @@
 import { Center, Container, Title } from "@mantine/core";
 import { Outlet } from "@remix-run/react";
-import { requireUserId } from "~/models/auth.server";
+import { requireUserId } from "~/utils/session.server";
 import type { LoaderFunction } from "@remix-run/node";
 
 export const loader: LoaderFunction = async ({ request }) => {

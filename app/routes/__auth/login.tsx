@@ -19,7 +19,7 @@ import { Form, Link, useActionData, useTransition } from "@remix-run/react";
 import { json } from "@remix-run/node";
 import type { ActionFunction } from "@remix-run/node";
 import type { RegisterForm } from "~/utils/types.server";
-import { login, register } from "~/models/auth.server";
+import { login, register } from "~/controllers/auth.server";
 import { showNotification } from "@mantine/notifications";
 import {
   validateConfirmPassword,

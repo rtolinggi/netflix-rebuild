@@ -1,11 +1,16 @@
 import { json, redirect } from "@remix-run/node";
 import { prisma } from "../utils/prisma.server";
 import type { RegisterForm, LoginForm } from "../utils/types.server";
-import { createUser } from "./users.server";
+import { createUser } from "../models/users.server";
 import bcrypt from "bcryptjs";
-import { createUserSession, storage } from "~/utils/session.server";
+import {
+  createUserSession,
+  getUsersession,
+  storage,
+} from "~/utils/session.server";
 import { constant } from "~/config/constant";
 import createTtansporter from "~/utils/email.server";
+import { bodyEmail } from "~/config/email";
 
 export const register = async (form: RegisterForm) => {
   const userExist = await prisma.user.count({
@@ -36,9 +41,7 @@ export const register = async (form: RegisterForm) => {
   createTtansporter(
     newUser.email,
     "Verification User",
-    `
-    <h3><b>Please Clink link in bottom</b></h3>
-  `
+    bodyEmail(`http://localhost:3000/verified/${newUser.token}`)
   );
 
   return json(
@@ -68,7 +71,7 @@ export const login = async (form: LoginForm) => {
     );
   }
 
-  if (!constant.EMAIL_VERIFICATION) {
+  if (constant.EMAIL_VERIFICATION) {
     if (!user.isVerified) {
       return json(
         {
@@ -93,42 +96,31 @@ export const logout = async (request: Request) => {
   });
 };
 
-export const requireUserId = async (
-  request: Request,
-  redirectTo: string = new URL(request.url).pathname
-) => {
-  const session = await getUsersession(request);
-  const userId = session.get("userId");
-  if (!userId || typeof userId !== "string") {
-    const searchParams = new URLSearchParams([["redirectTo", redirectTo]]);
-    throw redirect(`/auth?${searchParams}`);
-  }
-  return userId;
-};
+export const verifiedEmail = async (token: string) => {
+  const idEmail = await prisma.verifiedEmail.findFirst({ where: { token } });
 
-const getUsersession = (request: Request) => {
-  return storage.getSession(request.headers.get("Cookie"));
-};
-
-const getUserId = async (request: Request) => {
-  const session = await getUsersession(request);
-  const userId = session.get("userId");
-  if (!userId || typeof userId !== "string") return null;
-  return userId;
-};
-
-export const getUser = async (request: Request) => {
-  const userId = await getUserId(request);
-  if (typeof userId !== "string") {
-    return null;
-  }
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, profile: true },
+  if (!idEmail) {
+    return json({
+      success: false,
+      message: "Token Invalid",
     });
-    return user;
-  } catch (error) {
-    throw logout(request);
   }
+
+  const verified = await prisma.user.update({
+    where: {
+      id: idEmail?.userId,
+    },
+    data: {
+      isVerified: true,
+    },
+  });
+
+  if (!verified) {
+    return json({
+      success: false,
+      message: "Somthing Wrong",
+    });
+  }
+
+  return createUserSession(verified.id, "/movie");
 };

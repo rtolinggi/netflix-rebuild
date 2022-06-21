@@ -5,8 +5,6 @@ import { constant } from "~/config/constant";
 const createTtansporter = (email: string, subject: string, html: string) => {
   const transporter = nodemailer.createTransport({
     host: constant.EMAIL_HOST,
-    port: constant.EMAIL_PORT,
-    secure: constant.EMAIL_SECURE,
     auth: {
       user: constant.EMAIL_USER,
       pass: constant.EMAIL_PASSWORD,

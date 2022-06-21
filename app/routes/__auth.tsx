@@ -12,11 +12,10 @@ import logo from "~/assets/Netflix_2015_logo.svg";
 import DarkMode from "~/components/DarkMode";
 import { redirect } from "@remix-run/node";
 import type { LoaderFunction } from "@remix-run/node";
-import { getUser } from "~/models/auth.server";
+import { getUser } from "~/utils/session.server";
 
 export const loader: LoaderFunction = async ({ request }) => {
   const auth = await getUser(request);
-  console.log(auth);
   return auth ? redirect("/movie") : null;
 };
 const Auth = () => {
@@ -47,7 +46,6 @@ const Auth = () => {
         </Anchor>
         <DarkMode variant='filled' size={25} />
       </Group>
-
       <Center style={{ minHeight: "100vh", width: "100%" }}>
         <Outlet />
       </Center>
